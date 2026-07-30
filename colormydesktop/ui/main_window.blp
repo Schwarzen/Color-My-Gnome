@@ -1,0 +1,47 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $MyMainWindow : Adw.ApplicationWindow {
+  title: "Color My Desktop";
+  default-width: 1200;
+  default-height: 800;
+  decorated: false;
+
+  Gtk.Box drag_frame {
+    vexpand: true;
+    hexpand: true;
+
+    Gtk.Overlay root_overlay {
+      child: Gtk.Box top_drag_bar {
+        orientation: vertical;
+
+        Adw.ToastOverlay toast_overlay {
+          child: Adw.NavigationView nav_view {
+            vexpand: true;
+            hexpand: true;
+            
+            // DYNAMIC IMPORT: We drop your sub-page straight into the stack here!
+            $PageHomeView home_view_panel {
+              vexpand: true;
+              hexpand: true;
+            }
+            
+          };
+        }
+      };
+
+      [overlay] 
+      Gtk.Button close_btn { 
+        icon-name: "window-close-symbolic";
+        halign: end;     // Replaces .set_halign(Gtk.Align.END) -> Pins to the right
+        valign: start;   // Replaces .set_valign(Gtk.Align.START) -> Pins to the top
+        margin-top: 6;   // Centered nicely inside your outer window frame padding
+        margin-end: 6;
+        styles ["flat", "circular"] // Standard sleek, modern GNOME circular button style
+      }
+      
+    }
+  }
+
+  
+}

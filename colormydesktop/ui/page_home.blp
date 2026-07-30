@@ -1,0 +1,167 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PageHomeView : Adw.NavigationPage {
+  title: "Theme Dash";
+
+  // Wrap your layout in a BreakpointBin to handle page-level responsiveness
+  child: Adw.BreakpointBin {
+    width-request: 360;
+    height-request: 200;
+
+    [breakpoints] 
+      Adw.Breakpoint {
+        condition ("max-width: 900sp")
+
+        setters {
+          split_container.orientation: vertical;
+          mockup_wrapper.visible: false;
+          controls_column.halign: fill;
+          // Hide the spacer widget when in collapsed mobile view
+          layout_spacer.visible: false;
+          show_mockup_switch.visible: true;
+        }
+      }
+
+    child: Gtk.ScrolledWindow {
+      hexpand: true;
+      vexpand: true;
+      hscrollbar-policy: never; // Prevent ugly horizontal scrolling
+      
+      // Main layout vertical wrapper block
+      child: Gtk.Box {
+        orientation: vertical;
+        spacing: 24;
+        margin-start: 60;  // Controls padding from the left window edge
+        margin-end: 20;    // Controls padding from the right window edge
+        margin-top: 40;
+        margin-bottom: 20;
+
+        Adw.PreferencesGroup load_group {
+          name: "load-group-id"; 
+          margin-start: 0;
+          margin-end: 0;
+          margin-top: 0;
+          margin-bottom: 0;
+
+          // THE COMBO ROW
+          Adw.ComboRow combo_row {
+            title: "Load Existing Profile";
+            activatable-widget: combo_row; 
+
+            // --- NEW PROFILE BUTTON ---
+            [suffix]
+            Gtk.Button new_profile_btn {
+              icon-name: "list-add-symbolic";
+              valign: center;
+              tooltip-text: "Start New Profile";
+              margin-end: 4;
+              styles ["flat"]
+            }
+
+            // --- DELETE PROFILE BUTTON ---
+            [suffix]
+            Gtk.Button delete_profile_btn {
+              icon-name: "user-trash-symbolic";
+              valign: center;
+              tooltip-text: "Delete Selected Profile";
+              margin-end: 10;
+              visible: false; 
+              styles ["flat", "error"]
+            }
+          }
+
+          // --- MAIN RESPONSIVE CONTAINER ---
+          Gtk.Box split_container {
+            orientation: horizontal;
+            spacing: 20;
+            hexpand: true;
+            vexpand: true;
+
+            // COLUMN A: THE SETTINGS GROUPS
+            Gtk.Box controls_column {
+              orientation: vertical;
+              spacing: 10;
+              hexpand: false;
+              halign: start;
+              width-request: 380;
+
+              Adw.PreferencesGroup color_rows_group {
+                margin-top: 20;
+                hexpand: true; 
+                Adw.EntryRow name_row {
+                  hexpand: true; 
+                }
+              }
+
+              Adw.PreferencesGroup visibility_group {
+                Adw.SwitchRow show_mockup_switch {
+                  title: "Show Mockup Preview";
+                  subtitle: "Toggle image mockup panel display";
+                  visible: false; 
+                }
+              }
+            }
+            
+            // THE EXPANDING SPACER
+            Gtk.Box layout_spacer {
+              hexpand: true;
+            }
+
+            // COLUMN B: THE MOCKUP WRAPPER
+            Gtk.Box mockup_wrapper {
+              orientation: vertical;
+              name: "mockup-wrapper";
+              width-request: 425;
+              height-request: 100;
+              overflow: hidden;
+              spacing: 0;
+              margin-top: 10;
+
+              Gtk.Image mockup_image {
+                name: "mockup-preview-image";
+                pixel-size: 425;
+                hexpand: true;
+              }
+            }
+          }
+        }
+
+        // BOTTOM ROW: THE SWITCH GENERATION SELECTION GROUP
+        Adw.PreferencesGroup switch_group {
+          Adw.ActionRow title_row {
+            title: "Select themes to generate";
+          }
+          Adw.SwitchRow gnome_switch {
+            title: "Gnome-Shell";
+            subtitle: "Refresh";
+            active: false;
+          }
+          Adw.SwitchRow plasma_switch {
+            title: "KDEPlasma";
+            subtitle: "Refresh";
+            active: false;
+          }
+          Adw.SwitchRow gtk4_switch {
+            title: "GTK4";
+            active: false;
+          }
+          Adw.SwitchRow zen_switch {
+            title: "Zen Browser";
+            active: false;
+          }
+          Adw.SwitchRow youtube_switch {
+            title: "Youtube (Zen)";
+            active: false;
+          }
+          Adw.SwitchRow vesktop_switch {
+            title: "Vesktop";
+            active: false;
+          }
+        }
+      };
+    };
+  };
+}
+
+

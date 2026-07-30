@@ -52,6 +52,11 @@ ytd-watch-flexy {
   border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+#masthead-container.ytd-app {
+  background-color: #{$primary} !important;
+
+}
+
 ytd-mini-guide-renderer.style-scope.ytd-app {
   background-color: #{$primary} !important;
   border-right: 1px solid #{$secondary} !important;
