@@ -32,8 +32,8 @@ template $PageHomeView : Adw.NavigationPage {
       child: Gtk.Box {
         orientation: vertical;
         spacing: 24;
-        margin-start: 60;  // Controls padding from the left window edge
-        margin-end: 20;    // Controls padding from the right window edge
+        margin-start: 30;  // Controls padding from the left window edge
+        margin-end: 30;    // Controls padding from the right window edge
         margin-top: 40;
         margin-bottom: 20;
 
@@ -157,6 +157,22 @@ template $PageHomeView : Adw.NavigationPage {
           Adw.SwitchRow vesktop_switch {
             title: "Vesktop";
             active: false;
+          }
+          Adw.ActionRow advanced_options_row {
+            title: "Advanced Options";
+            subtitle: "extra options for platforms";
+            
+            // This property makes clicking anywhere on the row trigger the button
+            activatable-widget: advanced_options_action_btn;
+
+            // We embed our decorative plus button into the right-hand suffix area
+            [suffix]
+            Gtk.Button advanced_options_action_btn {
+              icon-name: "list-add-symbolic"; // Native system plus icon
+              valign: center;
+              tooltip-text: "Add New Configuration Extension";
+              styles ["flat", "circular"] // Keeps it integrated with the row nicely
+            }
           }
         }
       };

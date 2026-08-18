@@ -36,12 +36,12 @@ BASE_STYLE_SHEET = """
     margin-top: -80px;
     margin-bottom: -60px;
     padding: 0px;
-    hexpand: true;
+    width: 100%;
 }
 
 #mockup-wrapper {
     border-radius: 12px;
-    background: linear-gradient(165deg, __BG_COLOR__ 0%, #080808 100%);
+    background: linear-gradient(165deg, #181818 0%, #080808 100%);
     padding: 0px; 
     min-height: 10px;
 }

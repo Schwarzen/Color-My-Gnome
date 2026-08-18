@@ -31,8 +31,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="GtkBox">
                 <property name="orientation">1</property>
                 <property name="spacing">24</property>
-                <property name="margin-start">60</property>
-                <property name="margin-end">20</property>
+                <property name="margin-start">30</property>
+                <property name="margin-end">30</property>
                 <property name="margin-top">40</property>
                 <property name="margin-bottom">20</property>
                 <child>
@@ -179,6 +179,24 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       <object class="AdwSwitchRow" id="vesktop_switch">
                         <property name="title">Vesktop</property>
                         <property name="active">false</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="advanced_options_row">
+                        <property name="title">Advanced Options</property>
+                        <property name="subtitle">extra options for platforms</property>
+                        <property name="activatable-widget">advanced_options_action_btn</property>
+                        <child type="suffix">
+                          <object class="GtkButton" id="advanced_options_action_btn">
+                            <property name="icon-name">list-add-symbolic</property>
+                            <property name="valign">3</property>
+                            <property name="tooltip-text">Add New Configuration Extension</property>
+                            <style>
+                              <class name="flat"/>
+                              <class name="circular"/>
+                            </style>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
