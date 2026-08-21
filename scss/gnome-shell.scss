@@ -1034,7 +1034,9 @@ StScrollBar {
   padding: 4px; }
 
 .datemenu-popover {
-  background-color: $primary !important; /* potential target */
+  background-gradient-direction: vertical;
+  background-gradient-start: #{$panel-grad-start};
+  background-gradient-end: #{$panel-grad-end}; /* potential target */
   box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.15);
   border-radius: 10px; }
 
@@ -1806,11 +1808,13 @@ StScrollBar {
 
 /* Top Bar */
 #panel {
-  background-color: $primary; /* BAR_TARGET */
+  background-gradient-direction: horizontal;
+  background-gradient-start: #{$topbar-start};
+  background-gradient-end: #{$topbar-end};
   font-weight: bold;
   height: 2.2em;
   transition-duration: 250ms;
-  box-shadow: inset 0 -0.5px 0 0 $tertiary; }
+  box-shadow: inset 0 -0.5px 0 0 $primary; }
   #panel .panel-button {
     transition-duration: 150ms;
     border: 3px solid transparent;

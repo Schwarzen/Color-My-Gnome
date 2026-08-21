@@ -1,6 +1,7 @@
 # /home/Warzen/Color-My-Desktop/colormydesktop/broker.py
 from colormydesktop.config import FEATURE_SWITCH_STATES, SWITCH_REVEAL_MAP
 from colormydesktop.dialogs import DynamicPopupWindow
+from colormydesktop.functions import ThemeManager
 
 
 class ContextBroker:
@@ -155,10 +156,19 @@ class ContextBroker:
                         f"[BROKER AUTOFILL] Populated custom entry '{css_id}' with primary color: {live_primary_hex}"
                     )
 
-            # Re-trigger a mockup update to paint the color adjustments loop
-            action_type = "CHANGED_TEXT_INPUT"
-            payload = {"entry_row": None, "css_id": "primary"}
+            # Check if the toggled switch was the refresh_switch and if it is active
+            # Inside your broker's translate_action method:
+            if payload.get("css_id") == "refresh_switch":
+                is_active = payload.get("is_active", False)
+                switch_widget = payload.get("widget")
+                gnome_options_page = payload.get("page")
 
+                ThemeManager.initial_status(cls.get_page("home_view"), is_active)
+                cls.manager.on_gnome_refresh_toggled(
+                    is_active=is_active,
+                    switch_widget=switch_widget,
+                    gnome_options_page=gnome_options_page,
+                )
         # --- A. HANDLE TYPING ACTIONS ---
         if action_type == "CHANGED_TEXT_INPUT":
             # Save standard input changes to memory
@@ -206,6 +216,7 @@ class ContextBroker:
 
                 # Push the cleanly processed configuration payload to your canvas renderer
                 home_page.interactive_preview.update_colors(master_color_payload)
+
         # --- B. HANDLE ADVANCED COLOR PICKER DIALOG CLICKS ---
         elif action_type == "CLICKED_ADVANCED_PICKER":
             p = payload
@@ -220,6 +231,9 @@ class ContextBroker:
             cls.manager.on_quick_picker_clicked(
                 p["gesture"], p["n_press"], p["x"], p["y"], p["entry_row"]
             )
+        elif action_type == "BUILD_BUTTON_CLICKED":
+            # Add infinite cross-page interaction loops here!
+            pass
         elif action_type == "ANOTHER_FEATURE_EVENT":
             # Add infinite cross-page interaction loops here!
             pass

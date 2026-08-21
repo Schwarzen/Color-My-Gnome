@@ -31,6 +31,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <signal name="notify::active" handler="on_datemenu_toggled"/>
           </object>
         </child>
+        <child>
+          <object class="AdwSwitchRow" id="refresh_switch">
+            <property name="title">Toggle GNOME auto refresh</property>
+            <signal name="notify::active" handler="on_refresh_toggled"/>
+          </object>
+        </child>
       </object>
     </child>
     <child>

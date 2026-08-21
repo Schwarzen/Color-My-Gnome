@@ -22,6 +22,10 @@ template $GnomeOptions : Gtk.Box {
       title: "Unique datemenu color";
       notify::active => $on_datemenu_toggled();
     } 
+    Adw.SwitchRow refresh_switch {
+      title: "Toggle GNOME auto refresh";
+      notify::active => $on_refresh_toggled();
+    } 
   }
   Gtk.Revealer {
     reveal-child: bind topbar_toggle.active;

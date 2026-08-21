@@ -105,7 +105,7 @@ template $PageHomeView : Adw.NavigationPage {
             
             // THE EXPANDING SPACER
             Gtk.Box layout_spacer {
-              hexpand: true;
+              spacing: 15;
             }
 
             // COLUMN B: THE MOCKUP WRAPPER
@@ -172,6 +172,21 @@ template $PageHomeView : Adw.NavigationPage {
               valign: center;
               tooltip-text: "Add New Configuration Extension";
               styles ["flat", "circular"] // Keeps it integrated with the row nicely
+            }
+
+          }
+          Adw.ActionRow build_button_row {
+            title: "Build and Export themes";
+            
+            // This property makes clicking anywhere on the row trigger the button
+            activatable-widget: build_btn;
+            // We embed our decorative plus button into the right-hand suffix area
+            [suffix]
+            Gtk.Button build_btn {
+              icon-name: "list-add-symbolic"; // Native system plus icon
+              valign: center;
+              tooltip-text: "Build and export themes!";
+              styles ["flat:", "circular"] // Keeps it integrated with the row nicely
             }
           }
         }

@@ -14,6 +14,7 @@ from .dialogs import DialogMixin, DynamicPopupWindow
 from .advancedpref import AdvancedMixin
 from colormydesktop.css import BASE_STYLE_SHEET
 
+
 # --- CONFIGURATION ---
 if os.environ.get("FLATPAK_ID"):
     # Inside Flatpak, the script is at /app/bin/
@@ -452,7 +453,7 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
         #        self.group.add(self.papirus_switch)
 
         # BUILD BUTTON
-        self.build_btn = Gtk.Button(label="Build and Apply Theme")
+        self.build_btn = self.ui.build_btn
         self.build_btn.add_css_class("suggested-action")  # color
         self.build_btn.set_margin_top(24)
         self.build_btn.set_margin_bottom(24)
@@ -614,6 +615,23 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
 
         ########################
 
+    def show_toast(self, message: str):
+        from colormydesktop.broker import ContextBroker
+
+        # 1. Try getting overlay attached to self, or fetch active UI view/window from ContextBroker
+        ui_context = getattr(self, "main_page_context", None) or ContextBroker.get_page(
+            "home_view"
+        )
+        overlay = getattr(self, "toast_overlay", None) or getattr(
+            ui_context, "toast_overlay", None
+        )
+
+        # 2. Add toast if UI exists, otherwise print to log
+        if overlay:
+            overlay.add_toast(Adw.Toast.new(message))
+        else:
+            print(f"[Toast Fallback]: {message}")
+
     # }}}
     # FIX: non-integrated legacy function requiring new logic {{{
     def setup_subtitle_links(self):
@@ -651,32 +669,34 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
     # }}}
 
     # FIX:  more auto refresh logic here {{{
-    #        def initial_status(self):
-    #
-    #        accent_blue = "#3584e4"
-    #        if hasattr(self, "refresh_switch"):
-    #            toggled = self.refresh_switch.get_active()
-    #        else:
-    #            toggled = False
-    #        switch_text = (
-    #            "Auto refresh active"
-    #            if toggled
-    #            else f"Auto refresh inactive - (<span color='{accent_blue}' underline='single'>See advanced GNOME options</span>)"
-    #        )
-    #        self.gnome_switch.set_subtitle(switch_text)
-    #        self.gnome_switch.set_use_markup(True)
-    #
-    #        if hasattr(self, "plasma_refresh_switch"):
-    #            toggled = self.plasma_refresh_switch.get_active()
-    #        else:
-    #            toggled = False
-    #        plasma_switch_text = (
-    #            "Auto refresh active"
-    #            if toggled
-    #            else f"Auto refresh inactive - (<span color='{accent_blue}' underline='single'>See advanced KDE options</span>)"
-    #        )
-    #        self.plasma_switch.set_subtitle(plasma_switch_text)
-    #        self.plasma_switch.set_use_markup(True)
+    @staticmethod
+    def initial_status(self, toggled, accent_blue="#3584e4"):
+        # Safely check and get the GNOME refresh switch state
+
+        switch_text = (
+            "Auto refresh active"
+            if toggled
+            else f"Auto refresh inactive - (<span color='{accent_blue}' underline='single'>See advanced GNOME options</span>)"
+        )
+        if hasattr(self, "gnome_switch"):
+            self.gnome_switch.set_subtitle(switch_text)
+            self.gnome_switch.set_use_markup(True)
+
+        # Safely check and get the KDE/Plasma refresh switch state
+        plasma_refresh_switch = getattr(self, "plasma_refresh_switch", None)
+        plasma_toggled = (
+            plasma_refresh_switch.get_active() if plasma_refresh_switch else False
+        )
+
+        plasma_switch_text = (
+            "Auto refresh active"
+            if plasma_toggled
+            else f"Auto refresh inactive - (<span color='{accent_blue}' underline='single'>See advanced KDE options</span>)"
+        )
+        if hasattr(self, "plasma_switch"):
+            self.plasma_switch.set_subtitle(plasma_switch_text)
+            self.plasma_switch.set_use_markup(True)
+
     # }}}
     #
     # FIX: Legacy function that has secondary use which needs to be re-integrated separately {{{
@@ -1129,27 +1149,48 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
             if is_active:
                 print("Plasma Auto-Reload Enabled (Native mode - direct commands)")
 
-    def on_gnome_refresh_toggled(self, switch, pspec):
-        is_active = switch.get_active()
+    def on_gnome_refresh_toggled(
+        self, is_active, switch_widget, gnome_options_page=None
+    ):
+        import os
+        from colormydesktop.broker import ContextBroker
+
+        # NOTE: Update this import to match your actual Setup page class
+        from colormydesktop.lib_gui import GnomeSetupDialog
+
+        current_widget = gnome_options_page if gnome_options_page else switch_widget
+
         is_flatpak = os.path.exists("/.flatpak-info")
 
-        # ONLY perform the 'Installation' check if we are in a Flatpak
         if is_flatpak:
             if is_active and not self.check_gnome_refresh_status():
-                # Not installed in Flatpak: Reset switch and show setup
-                switch.set_active(False)
-                self.show_gnome_setup_dialog()
+                # 1. Validation failed: Reset the switch instantly
+                if switch_widget:
+                    switch_widget.set_active(False)
+
+                # 2. Trigger broker navigation instead of calling a hardcoded dialog
+                # We can use switch_widget as the current_widget reference for the broker
+                ContextBroker.navigate(
+                    current_widget=current_widget,
+                    target_page_class=GnomeSetupDialog,
+                    page_id="gnome_setup_dialog",
+                )
+
             elif not is_active:
                 print("GNOME Auto-Reload Disabled (Flatpak mode)")
-
-        # NATIVE MODE: If it's active, we just assume it works
-        # (since we trigger commands directly on the host)
         else:
             if is_active:
                 print("GNOME Auto-Reload Enabled (Native mode - direct commands)")
 
     def trigger_shell_refresh(self):
-        if not hasattr(self, "refresh_switch") or not self.refresh_switch.get_active():
+        from colormydesktop.broker import ContextBroker
+
+        gnome_options = ContextBroker.get_page("gnome_options")
+        # Check if "refresh" switch exists in gnome_options and is active
+        refresh_switch = getattr(gnome_options, "switches", {}).get("refresh_switch")
+
+        if not refresh_switch or not refresh_switch.get_active():
+            print("refresh skipped")
             return
 
         is_flatpak = os.path.exists("/.flatpak-info")
@@ -1955,13 +1996,37 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
 
     # SECTION END FUNCTIONS }}}
     def on_run_build_clicked(self, button):
+        from colormydesktop.config import get_default_color_map
+        import subprocess
+
+        final_colors = get_default_color_map()
+        print("\n=== [DEBUG] THEME BUILDER SEES MAP AT CLICK TIME ===")
+        print(json.dumps(final_colors, indent=4))
+        print("===================================================\n")
+
+        # Standalone parser mirroring the mockup function
+        def extract_stops(val, fallback):
+            val = str(val).strip() if val else fallback
+            if "," in val:
+                colors = [c.strip() for c in val.split(",") if c.strip()]
+                if len(colors) >= 2:
+                    return colors[0], colors[1]
+                elif colors:
+                    return colors[0], colors[0]
+            return val, val
+
+        topbar_start, topbar_end = extract_stops(
+            final_colors.get("topbarcolor"), "#1a4d8c"
+        )
 
         self.active_build_button = button
         self.active_build_button.set_sensitive(False)
         # Get primary hex and ensure it is a string
-        primary_color = str(self.primary_row.get_text() or "#246cc5")
-        secondary_color = str(self.secondary_row.get_text() or "#246cc5")
-        text_color = str(self.text_row.get_text() or "#f9f9f9")
+        primary_color = str(self.ui.color_entries["primary"].get_text() or "#246cc5")
+        secondary_color = str(
+            self.ui.color_entries["secondary"].get_text() or "#246cc5"
+        )
+        text_color = str(self.ui.color_entries["text"].get_text() or "#f9f9f9")
         plasma_path = self.get_path_argument("~/.local/share/plasma")
         schemes_path = self.get_path_argument("~/.local/share/color-schemes")
         gnome_path = self.get_path_argument("~/.local/share/themes")
@@ -1976,54 +2041,72 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
         vesktop_path = self.get_path_argument("~/.config/vesktop/themes")
         gtk4_path = self.get_path_argument("~/.config/gtk-4.0")
         papirus_path = self.get_path_argument("~/.local/share/icons")
+        raw_primary = self.ui.color_entries["primary"].get_text().strip()
 
-        if self.topbar_switch.get_active():
-            topbar_val = str(self.topbar_row.get_text())
+        # Set up defaults assuming it's a normal single hex color
+        solid_primary = raw_primary
+        gradient_str = "none"
+
+        # Detect if the user typed a comma-separated gradient sequence
+        if "," in raw_primary:
+            colors = [c.strip() for c in raw_primary.split(",") if c.strip()]
+            if colors:
+                solid_primary = colors[
+                    0
+                ]  # Extracts the first color for st-mix/fallbacks
+                gradient_str = ", ".join(colors)
+
+        from colormydesktop.broker import ContextBroker
+
+        # Fetch the registered home view instance
+        gnome_options = ContextBroker.get_page("gnome_options")
+        topbar_switch = gnome_options.switches["topbarcolor"]
+        if topbar_switch.get_active():
+            topbar_val = str(gnome_options.color_entries["topbarcolor"].get_text())
         else:
             topbar_val = primary_color
 
-        if self.clock_switch.get_active():
-            clock_val = str(self.clock_row.get_text())
-        else:
-            clock_val = text_color
+            # if self.clock_switch.get_active():
+            # clock_val = str(self.clock_row.get_text())
+            # else:
+            # clock_val = text_color
 
             #  Logic for Nautilus Main
         # If the advanced toggle is OFF, fallback to Primary
-        n_main_sw = getattr(self, "nautilus_custom_switch")
-        n_naut_row = getattr(self, "nautilus_custom_entry")
+        # n_main_sw = getattr(self, "nautilus_custom_switch")
+        # n_naut_row = getattr(self, "nautilus_custom_entry")
 
-        n_sec_sw = getattr(self, "nautilus_custom_sec_switch")
-        n_naut_row_sec = getattr(self, "nautilus_custom_naut_row_sec")
+        # n_sec_sw = getattr(self, "nautilus_custom_sec_switch")
+        # n_naut_row_sec = getattr(self, "nautilus_custom_naut_row_sec")
 
         # Get values: If active, take entry text. If not, take primary.
-        n_main_val = n_naut_row.get_text() if n_main_sw.get_active() else primary_color
-        n_sec_val = (
-            n_naut_row_sec.get_text() if n_sec_sw.get_active() else secondary_color
-        )
+        # n_main_val = n_naut_row.get_text() if n_main_sw.get_active() else primary_color
+        # n_sec_val = (
+        # n_naut_row_sec.get_text() if n_sec_sw.get_active() else secondary_color
+        # )
 
-        if not topbar_val.strip():
-            topbar_val = primary_color
-        if not clock_val.strip():
-            clock_val = text_color
+        # if not topbar_val.strip():
+        # if not clock_val.strip():
+        clock_val = text_color
 
         args = [
-            self.name_row.get_text(),
-            self.primary_row.get_text(),
-            self.secondary_row.get_text(),
-            self.tertiary_row.get_text(),
-            self.text_row.get_text(),
+            self.ui.name_row.get_text(),
+            solid_primary,
+            self.ui.color_entries["secondary"].get_text(),
+            self.ui.color_entries["accent"].get_text(),
+            self.ui.color_entries["text"].get_text(),
             "1" if self.zen_switch.get_active() else "0",
-            "1" if self.topbar_switch.get_active() else "0",
-            topbar_val,
-            "1" if self.clock_switch.get_active() else "0",
-            clock_val,
-            "1" if self.trans_switch.get_active() else "0",
+            "1" if gnome_options.switches["topbarcolor"].get_active() else "0",
+            topbar_val,  # topbar_val
+            "0",  # if self.clock_switch.get_active() else "0",
+            clock_val,  # clock_val
+            "0",  # if self.trans_switch.get_active() else "0",
             "0.8",
-            "1" if self.papirus_switch.get_active() else "0",  # ${13}
-            n_main_val,  # $14
+            "0",  # if self.papirus_switch.get_active() else "0",  # ${13}
+            solid_primary,  # n_main_val ($14)
             "#246cc5",  # $15 (Datemenu fallback)
-            n_sec_val,  # $16
-            "1" if self.gnome_switch.get_active() else "0",  # $17
+            self.ui.color_entries["secondary"].get_text(),  # n_sec_val ($16)
+            "1" if self.ui.gnome_switch.get_active() else "0",  # $17
             "1" if self.gtk4_switch.get_active() else "0",  # $18
             "1" if self.plasma_switch.get_active() else "0",  # $19
             "1" if self.youtube_switch.get_active() else "0",  # 20
@@ -2035,6 +2118,9 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
             vesktop_path,
             gtk4_path,
             papirus_path,
+            gradient_str,  # ${29}
+            topbar_start,
+            topbar_end,
         ]
         self.log_container.set_visible(True)
         self.log_view.get_buffer().set_text("")
@@ -2062,6 +2148,9 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
             # Read output in real-time
             for line in iter(process.stdout.readline, ""):
                 if line:
+                    # 1. Print directly to terminal running the GUI
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
                     # Use idle_add to update the UI from the background thread safely
                     GLib.idle_add(self.append_log, line)
 
@@ -2106,7 +2195,7 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
 
     def build_finished(self):
         self.progress_bar.set_fraction(1.0)
-        self.toast_overlay.add_toast(Adw.Toast.new("Theme Applied Successfully!"))
+        self.show_toast("Theme Applied Successfully!")
         GLib.timeout_add(3000, self.auto_hide_logs)
 
     def auto_hide_logs(self):
@@ -2117,7 +2206,7 @@ class ThemeManager(Adw.ApplicationWindow, DialogMixin, AdvancedMixin):
             self.active_build_button.set_sensitive(True)
 
         # Optional: Show a final success toast
-        self.toast_overlay.add_toast(Adw.Toast.new("Build Complete!"))
+        self.show_toast("Build Complete!")
 
         return False  # CRITICAL: Tells GLib to only run this once
 

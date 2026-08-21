@@ -23,4 +23,7 @@ echo "✓ Compiled advanced_options.ui"
 blueprint-compiler compile gnome_options.blp --output ../gnome_options.ui
 echo "✓ Compiled gnome_options.ui"
 
+blueprint-compiler compile gnome_setup_dialog.blp --output ../gnome_setup_dialog.ui
+echo "✓ Compiled gnome_setup_dialog.ui"
+
 echo "✨ All UI files compiled successfully!"

@@ -1,244 +1,291 @@
 import gi
-
-import cairo
+import colorsys
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Rsvg", "2.0")
-from gi.repository import Gtk, Gdk, Rsvg
+gi.require_version("Gdk", "4.0")
+from gi.repository import Gdk, Gtk
 
 
-class InteractiveMockup(Gtk.DrawingArea):
+class InteractiveMockup(Gtk.Box):
     """
-    A custom interactive widget that renders an SVG mockup, tracks accurate mouse coordinates,
-    updates layout hover highlight overlays, and handles independent shape click callbacks.
+    A GTK4 Mockup utilizing a 3x3 Grid of Overlays.
+    Ensures elements stay centered and scale, but statically sized windows
+    freely overlap if the layout shrinks too much.
     """
 
-    def __init__(self, raw_svg_template):
-        super().__init__()
+    def __init__(self, raw_svg_template=None):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.set_hexpand(True)
+        self.set_vexpand(True)
 
-        print(
-            f"DEBUG: SVG data string received successfully! Total characters: {len(raw_svg_template)}"
+        self.update_colors({})
+
+        # 1. TOPBAR (CenterBox ensures the clock is always dead center)
+        topbar = Gtk.CenterBox()
+        topbar.add_css_class("topbar")
+        topbar.set_margin_top(10)
+        # --- Attach Click Controller to Topbar ---
+        topbar_click = Gtk.GestureClick()
+        topbar_click.connect(
+            "pressed",
+            lambda gesture, n_press, x, y: self.on_element_clicked(None, "topbar"),
         )
-        # Store the clean, un-mutated master SVG text layout template
-        self.raw_svg_template = raw_svg_template
-        # Load your raw SVG template directly into memory
-        baseline_svg = self.raw_svg_template
-        baseline_svg = baseline_svg.replace("__PRIMARY__", "#1a4d8c")
-        baseline_svg = baseline_svg.replace("__SECONDARY__", "#1a4d8c")
-        baseline_svg = baseline_svg.replace("__ACCENT__", "#102f54")
-        baseline_svg = baseline_svg.replace("__TEXT__", "#ffffff")
-        # State tracking flags
+        topbar.add_controller(topbar_click)
 
-        try:
-            self.handle = Rsvg.Handle.new_from_data(baseline_svg.encode("utf-8"))
-            print("[MOCKUP SYSTEM] Base SVG compiled successfully!")
-        except Exception as error:
-            print(f"[MOCKUP SYSTEM] CRITICAL PARSE ERROR: {error}")
+        # --- Clock / Date Menu (Center) built as a Gtk.Box ---
+        self.clock = Gtk.Box()
+        self.clock.add_css_class("mockup-btn")
 
-        self.hovered_element = None
+        # Add a label inside the box for the text
+        clock_label = Gtk.Label(label="Oct 24 10:45 AM")
+        self.clock.append(clock_label)
 
-        self.interactive_element_ids = ["topbar", "datemenu", "powermenu"]
-        # 2. Configure widget options to capture interaction events
-        self.set_draw_func(self.on_draw)
+        # Since Gtk.Box doesn't have a 'clicked' signal, use GestureClick
+        clock_click = Gtk.GestureClick()
+        clock_click.connect(
+            "pressed",
+            lambda gesture, n_press, x, y: self.on_element_clicked(None, "datemenu"),
+        )
+        self.clock.add_controller(clock_click)
 
-        # 3. Attach standard GTK4 pointer controllers for inputs
-        motion_ctrl = Gtk.EventControllerMotion()
-        motion_ctrl.connect("motion", self.on_mouse_moved)
-        motion_ctrl.connect("leave", self.on_mouse_left)
-        self.add_controller(motion_ctrl)
+        topbar.set_center_widget(self.clock)
 
-        click_ctrl = Gtk.GestureClick()
-        click_ctrl.connect("pressed", self.on_mockup_clicked)
-        self.add_controller(click_ctrl)
+        self.powermenu = Gtk.Button(icon_name="system-shutdown-symbolic")
+        self.powermenu.add_css_class("mockup-btn")
+        self.powermenu.connect("clicked", self.on_element_clicked, "powermenu")
+
+        right_box = Gtk.Box(halign=Gtk.Align.END)
+        right_box.append(self.powermenu)
+        topbar.set_end_widget(right_box)
+        self.append(topbar)
+
+        # 2. DESKTOP AREA (3x3 Grid)
+        desktop_grid = Gtk.Grid()
+        desktop_grid.add_css_class("desktop-area")
+        desktop_grid.set_hexpand(True)
+        desktop_grid.set_vexpand(True)
+        desktop_grid.set_column_homogeneous(True)  # Forces equal width columns
+        desktop_grid.set_row_homogeneous(True)  # Forces equal height rows
+
+        # Helper Function: Creates a cell that lets its content overflow
+        def create_overlay_cell():
+            cell = Gtk.Overlay()
+            # The base is an empty box. This tells GTK "I can shrink to 0 pixels!"
+            base = Gtk.Box()
+            base.set_hexpand(True)
+            base.set_vexpand(True)
+            cell.set_child(base)
+
+            # Allow contents to bleed outside the grid cell boundaries
+            cell.set_overflow(Gtk.Overflow.VISIBLE)
+            return cell
+
+        # 3. FILL GRID WITH OVERLAY CELLS
+        # We store them in a dictionary so we can easily inject windows into specific coordinates
+        self.grid_cells = {}
+        for col in range(3):
+            for row in range(3):
+                cell = create_overlay_cell()
+                desktop_grid.attach(cell, column=col, row=row, width=1, height=1)
+                self.grid_cells[(col, row)] = cell
+
+        # 4. WINDOW 1: Center under the clock (Col 1, Row 0)
+        self.app_window1 = Gtk.Box()
+        self.app_window1.add_css_class("app-window")
+        self.app_window1.set_size_request(170, 180)  # Static Size
+        self.app_window1.set_halign(Gtk.Align.CENTER)
+        self.app_window1.set_valign(Gtk.Align.START)
+        self.app_window1.set_margin_top(10)
+        # --- Make app_window1 trigger the topbar action on click ---
+        window1_click = Gtk.GestureClick()
+        window1_click.connect(
+            "pressed",
+            lambda gesture, n_press, x, y: self.on_element_clicked(None, "topbar"),
+        )
+        self.app_window1.add_controller(window1_click)
+
+        # Inject as a floating overlay into the Top-Center cell
+        self.grid_cells[(1, 0)].add_overlay(self.app_window1)
+
+        # 5. WINDOW 2: Bottom Right (Col 2, Row 1)
+        self.app_window2 = Gtk.Box()
+        self.app_window2.add_css_class("app-window2")
+        self.app_window2.set_size_request(240, 150)  # Static Size
+        self.app_window2.set_halign(Gtk.Align.CENTER)
+        self.app_window2.set_valign(Gtk.Align.CENTER)
+        self.app_window2.set_margin_top(60)
+        self.app_window2_1 = Gtk.Box()
+        self.app_window2_1.add_css_class("app-window2_1")
+        self.app_window2_1.set_size_request(220, 125)  # Static Size
+        self.app_window2_1.set_halign(Gtk.Align.CENTER)
+        self.app_window2_1.set_valign(Gtk.Align.CENTER)
+        self.app_window2_1.set_margin_top(10)
+        self.app_window2_1.set_margin_start(40)
+        self.app_window2_1.set_margin_end(7)
+        self.app_window2.append(self.app_window2_1)
+
+        # Shift it slightly to force dramatic overlapping during resizes
+        self.app_window2.set_margin_start(100)
+
+        # Inject as a floating overlay into the Bottom-Right cell
+        self.grid_cells[(0, 1)].add_overlay(self.app_window2)
+        # ... (Window 1 and Window 2 setup code) ...
+
+        # To force Window 2's cell to the absolute top of the Z-index stack:
+        cell_to_bring_forward = self.grid_cells[(0, 1)]
+
+        # 1. Remove it from the grid
+        desktop_grid.remove(cell_to_bring_forward)
+
+        # 2. Re-attach it at the exact same coordinates
+        # Because it is the newest addition, GTK draws it on top of all other cells!
+        desktop_grid.attach(cell_to_bring_forward, column=0, row=1, width=1, height=1)
+
+        self.append(desktop_grid)
+
+    def on_element_clicked(self, button, element_id):
+        print(f"[MOCKUP INTERACTION] Target item clicked: {element_id}")
+        from colormydesktop.broker import ContextBroker
+
+        ContextBroker.translate_action(
+            sender_id="InteractiveMockup",
+            action_type="CLICKED_MOCKUP_ELEMENT",
+            payload={"element_id": element_id},
+        )
 
     def update_colors(self, color_data_map):
-        """
-        Force-cleans incoming parameters to guarantee strict hex validation.
-        this is where the SVG variables are replaced by the live color values
-        """
+        from colormydesktop.config import (
+            get_default_color_map,
+            update_runtime_color_map,
+        )
+        import colorsys
+        import json
 
-        from colormydesktop.config import COLOR_REGISTRY_MAP, get_default_color_map
-
-        # 1. Start with a baseline fallback structure
         final_colors = get_default_color_map()
-        # 2. Overwrite defaults with any live values currently present in our data map
+
         final_colors.update(color_data_map)
+        update_runtime_color_map(color_data_map)
+        # --- DEBUG PRINT BLOCK ---
+        print("\n=== [DEBUG] SAVING LIVE PALETTE SELECTION ===")
+        print(json.dumps(final_colors, indent=4))
+        print("============================================\n")
 
-        def sanitize(hex_val):
-            hex_val = str(hex_val).strip().replace(";", "")
-            if hex_val and not hex_val.startswith("#"):
-                hex_val = f"#{hex_val}"
-            return hex_val
+        def parse_css_background(input_value, fallback_hex):
+            """
+            Checks if the user input contains multiple comma-separated hex codes.
+            Returns a clean string block of CSS properties for background rendering.
+            """
+            val = str(input_value).strip()
+            if not val:
+                val = fallback_hex
 
-        # 3. Perform automated string iteration over the SVG template document bytes
-        processed_svg = self.raw_svg_template
-
-        for css_id, svg_token in COLOR_REGISTRY_MAP.items():
-            # Grab the hex value, sanitize it, and execute a dynamic text replace!
-            hex_value = sanitize(final_colors.get(css_id, "#ffffff"))
-            processed_svg = processed_svg.replace(svg_token, hex_value)
-
-        try:
-            self.handle = None
-            self.handle = Rsvg.Handle.new_from_data(processed_svg.encode("utf-8"))
-            self.queue_allocate()
-            self.queue_draw()
-        except Exception as error:
-            print(f"[MOCKUP SYSTEM] Automated loop compilation error: {error}")
-
-    def _get_svg_base_dimensions(self):
-        """
-        Queries layout viewBox dimensions safely using positional indexing
-        to completely bypass tuple unpacking parameter length mismatch crashes.
-        """
-        if not self.handle:
-            return 400.0, 300.0
-
-        try:
-            # 1. Capture the output variables together inside a flat tuple array container
-            intrinsic_data = self.handle.get_intrinsic_dimensions()
-
-            # The viewBox structure is consistently delivered as the very last element (-1)
-            viewbox = intrinsic_data[-1]
-
-            # The 'has_viewbox' flag sits as the second-to-last item (-2)
-            has_viewbox = intrinsic_data[-2]
-
-            if has_viewbox and viewbox is not None:
-                # If a valid viewBox layout geometry scale is found, return its bounds
-                print(
-                    f"[RECOVERY DEBUG] Extracted viewBox values -> W: {viewbox.width}, H: {viewbox.height}"
-                )
-                return float(viewbox.width), float(viewbox.height)
-        except Exception as error:
-            print(f"[RECOVERY ERROR] Intrinsic lookup failed: {error}")
-
-        # 2. STANDARD FALLBACK
-        # If the tuple structure is unexpected, query the baseline pixel bounds property
-        dimensions = self.handle.get_dimensions()
-        if dimensions.width > 0 and dimensions.height > 0:
-            return float(dimensions.width), float(dimensions.height)
-
-        # Global backup resolution
-        return 400.0, 300.0
-
-    def on_draw(self, drawing_area, cr, width, height):
-        if not self.handle:
-            return
-
-        svg_w, svg_h = self._get_svg_base_dimensions()
-
-        scale_x = width / svg_w
-        scale_y = height / svg_h
-
-        # Render the base document SVG asset
-        cr.save()
-        cr.scale(scale_x, scale_y)
-
-        viewport = Rsvg.Rectangle()
-        viewport.x, viewport.y, viewport.width, viewport.height = 0.0, 0.0, svg_w, svg_h
-        self.handle.render_document(cr, viewport)
-        cr.restore()
-
-        # ID-TARGETED HIGHLIGHT OVERLAY
-        if self.hovered_element and self.handle:
-            try:
-                # FIX 1: Unpack 'logical_rect' instead of relying solely on local bounds
-                success, _, logical_rect = self.handle.get_geometry_for_element(
-                    f"#{self.hovered_element}"
-                )
-
-                if success and logical_rect is not None:
-                    # TRANSFORM METRICS: Maps the global layout rect straight to screen pixels
-                    screen_x = logical_rect.x * scale_x
-                    screen_y = logical_rect.y * scale_y
-                    screen_w = logical_rect.width * scale_x
-                    screen_h = logical_rect.height * scale_y
-
-                    # Draw selection frame over the calculated global layout pixel bounds
-                    cr.set_source_rgba(1.0, 1.0, 1.0, 0.18)
-                    cr.rectangle(screen_x, screen_y, screen_w, screen_h)
-                    cr.fill_preserve()
-
-                    cr.set_source_rgba(1.0, 1.0, 1.0, 0.5)
-                    cr.set_line_width(1.5)
-                    cr.stroke()
-            except Exception as e:
-                print(f"[DRAW ERROR] Highlight fail: {e}")
-
-    def _get_element_at_pos(self, x, y):
-        """
-        Calculates matrix transformations dynamically to map mouse coordinate bounds
-        directly onto native XML element IDs using global logical dimensions.
-        """
-        if not self.handle:
-            return None
-
-        svg_w, svg_h = self._get_svg_base_dimensions()
-        w = self.get_width()
-        h = self.get_height()
-        if w <= 0 or h <= 0:
-            return None
-
-        # Translate actual screen cursor pixels back down into unscaled file grid coordinates
-        svg_x = (x / w) * svg_w
-        svg_y = (y / h) * svg_h
-
-        # Loop through your element IDs to detect direct vector bounding hits
-        for element_id in self.interactive_element_ids:
-            try:
-                # FIX 2: Check logical boundaries to catch grouped translations
-                success, _, logical_rect = self.handle.get_geometry_for_element(
-                    f"#{element_id}"
-                )
-
-                if success and logical_rect is not None:
-                    # Check if the unscaled mouse cursor sits inside the global layout coordinates
-                    if logical_rect.x <= svg_x <= (
-                        logical_rect.x + logical_rect.width
-                    ) and logical_rect.y <= svg_y <= (
-                        logical_rect.y + logical_rect.height
-                    ):
-                        return element_id
-            except Exception:
-                continue
-        return None
-
-    def on_mouse_moved(self, controller, x, y):
-        detected_hit = self._get_element_at_pos(x, y)
-
-        if detected_hit != self.hovered_element:
-            self.hovered_element = detected_hit
-            # Change mouse cursor style dynamically based on hit state
-            if self.hovered_element:
-                self.set_cursor(Gdk.Cursor.new_from_name("pointer", None))
+            if "," in val:
+                # Clean up individual components (e.g., "#6E5245 , #75361c")
+                colors = [c.strip() for c in val.split(",") if c.strip()]
+                color_string = ", ".join(colors)
+                # clear background-color to let GTK render the gradient canvas reliably
+                return f"background-image: linear-gradient(to bottom right, {color_string}); background-color: transparent;"
             else:
-                self.set_cursor(None)
-            self.queue_draw()  # Tells GTK to trigger a graphical refresh immediately
+                # Standard solid color color rule
+                return f"background-color: {val}; background-image: none;"
 
-    def on_mouse_left(self, controller):
-        self.hovered_element = None
-        self.set_cursor(None)
-        self.queue_draw()
+        def tint_desktop_from_primary(primary_input):
+            """Takes a hex color or gradient input, extracts the primary/first hue, and darkens it."""
+            # If primary is a gradient list, grab the first hex color to build the desktop tint background
+            if "," in str(primary_input):
+                colors = [c.strip() for c in str(primary_input).split(",") if c.strip()]
+                primary_hex = colors[0].lstrip("#") if colors else "1a4d8c"
+            else:
+                primary_hex = str(primary_input).lstrip("#")
 
-    def on_mockup_clicked(self, gesture, n_press, x, y):
-        clicked_element = self._get_element_at_pos(x, y)
-        if clicked_element:
-            # 3. ROUTE THE MOCKUP CLICK EVENT INTO THE BROKER GRAPH GLOBALLY!
-            from colormydesktop.broker import ContextBroker
+            if len(primary_hex) != 6:
+                return "background-color: #0a1f38; background-image: none;"  # Fallback
 
-            ContextBroker.translate_action(
-                sender_id="InteractiveMockup",
-                action_type="CLICKED_MOCKUP_ELEMENT",
-                payload={"element_id": clicked_element},
+            try:
+                # 1. Convert hex to RGB floats (0.0 to 1.0)
+                r = int(primary_hex[0:2], 16) / 255.0
+                g = int(primary_hex[2:4], 16) / 255.0
+                b = int(primary_hex[4:6], 16) / 255.0
+
+                # 2. Convert RGB to HLS
+                h, l, s = colorsys.rgb_to_hls(r, g, b)
+
+                # 3. Create a dark theme background maintaining the primary hue
+                new_lightness = 0.11
+                new_saturation = min(s, 0.35)
+
+                # 4. Convert back to RGB and then to Hex
+                nr, ng, nb = colorsys.hls_to_rgb(h, new_lightness, new_saturation)
+                dark_hex = f"#{int(nr * 255):02x}{int(ng * 255):02x}{int(nb * 255):02x}"
+                return f"background-color: {dark_hex}; background-image: none;"
+            except Exception:
+                return "background-color: #0a1f38; background-image: none;"
+
+        # Generate custom layout snippets using the parser
+        topbar_style = parse_css_background(final_colors.get("topbarcolor"), "#1a4d8c")
+        topbar_hover_style = parse_css_background(final_colors.get("accent"), "#133863")
+
+        desktop_style = tint_desktop_from_primary(
+            final_colors.get("primary", "#1a4d8c")
+        )
+
+        datemenu_style = parse_css_background(
+            final_colors.get("datemenucolor"), "#102f54"
+        )
+        datemenu_hover_style = parse_css_background(
+            final_colors.get("accent"), "#133863"
+        )
+
+        primary_style = parse_css_background(final_colors.get("primary"), "#102f54")
+        secondary_style = parse_css_background(final_colors.get("secondary"), "#102f54")
+
+        css_data = f"""
+        .topbar {{
+            {topbar_style}
+            padding: 6px;
+            cursor: pointer;
+        }}
+        /* Darkens the topbar when hovered */
+        .topbar:hover {{
+            {topbar_hover_style}
+        }}
+        .desktop-area {{
+            {desktop_style}
+        }}
+        .app-window {{
+            {datemenu_style}
+            border-radius: 8px;
+            box-shadow: 0px 8px 24px rgba(0,0,0,0.6);
+        }}
+        .app-window:hover {{
+            {datemenu_hover_style}
+        }}
+        .app-window2 {{
+            {primary_style}
+            border-radius: 8px;
+            box-shadow: 0px 8px 24px rgba(0,0,0,0.6);
+        }}
+        .app-window2_1 {{
+            {secondary_style}
+            border-radius: 8px;
+        }}
+        .mockup-btn, .mockup-btn label {{
+            background: transparent;
+            color: {final_colors.get("text", "#ffffff")};
+            padding: 4px 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }}
+        
+        .mockup-btn:hover {{
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+        }}
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css_data.encode("utf-8"))
+        display = Gdk.Display.get_default()
+        if display:
+            Gtk.StyleContext.add_provider_for_display(
+                display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             )
-
-    def execute_mockup_action(self, element_id):
-        """
-        Maps element clicks directly out to your external application logic blocks.
-        """
-        print(f"[MOCKUP INTERACTION] Target item clicked: {element_id}")
-
-        if element_id == "topbar":
-            # Fire an external function, toggle row displays, or pop open a submenu!
-            pass

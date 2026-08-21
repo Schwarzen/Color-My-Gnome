@@ -111,7 +111,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </child>
                         <child>
                           <object class="GtkBox" id="layout_spacer">
-                            <property name="hexpand">true</property>
+                            <property name="spacing">15</property>
                           </object>
                         </child>
                         <child>
@@ -193,6 +193,23 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             <property name="tooltip-text">Add New Configuration Extension</property>
                             <style>
                               <class name="flat"/>
+                              <class name="circular"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="build_button_row">
+                        <property name="title">Build and Export themes</property>
+                        <property name="activatable-widget">build_btn</property>
+                        <child type="suffix">
+                          <object class="GtkButton" id="build_btn">
+                            <property name="icon-name">list-add-symbolic</property>
+                            <property name="valign">3</property>
+                            <property name="tooltip-text">Build and export themes!</property>
+                            <style>
+                              <class name="flat:"/>
                               <class name="circular"/>
                             </style>
                           </object>

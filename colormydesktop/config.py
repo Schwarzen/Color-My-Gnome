@@ -25,14 +25,25 @@ COLOR_REGISTRY_MAP = {
     "panelcolor": "__PANEL__",  # Example
 }
 
+_RUNTIME_CACHE = {"custom_colors": {}}
+
 
 def get_default_color_map():
-    """Returns baseline fallback colors if a dictionary lookup is completely empty."""
-    return {
-        "primary": "#246cc5",
-        "secondary": "#1a4d8c",
-        "accent": "#102f54",
-        "text": "#ffffff",
-        "topbarcolor": "INHERIT",
-        "datemenucolor": "INHERIT",
+    # Your baseline default configuration parameters
+    defaults = {
+        "primary": "#3584e4",
+        "secondary": "#241f31",
+        "topbarcolor": "#1a4d8c",
+        "accent": "#133863",
+        "text": "#f9f9f9",
+        "datemenucolor": "#102f54",
     }
+    # Layer your active dynamic adjustments cleanly on top
+    defaults.update(_RUNTIME_CACHE["custom_colors"])
+    return defaults
+
+
+def update_runtime_color_map(new_colors):
+    """Safely preserves values in global module memory storage."""
+    if isinstance(new_colors, dict):
+        _RUNTIME_CACHE["custom_colors"].update(new_colors)

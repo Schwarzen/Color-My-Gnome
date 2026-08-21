@@ -833,7 +833,7 @@ class DialogMixin:
             folders = [folders]
 
         self.portal_widgets = {}
-        app_id = self.get_application().get_application_id()
+        app_id = "io.github.schwarzen.colormydesktop"
         dialog = Adw.MessageDialog(
             transient_for=self, heading=f"Special Setup: {title}"
         )

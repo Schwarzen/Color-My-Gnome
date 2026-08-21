@@ -119,6 +119,7 @@ gridview > child {
 }
 
 gridview > child:selected {
+
   background-color: $nautilus-main;
   outline-color: $text;
 }
@@ -131,7 +132,7 @@ gridview > child box {
 /* 1. Target the viewcell when selected */
 .nautilus-window .view nautilusviewcell:selected,
 .nautilus-window gridview child:selected nautilusviewcell {
-    background-color: $nautilus-main ;
+    background-color: transparent ;
     background-image: none ; /* Kills the default Adwaita blue gradient */
     outline: 1px solid $text ;
     border-radius: 8px;
@@ -5668,19 +5669,57 @@ popover.entry-completion > contents {
   padding: 0;
 }
 
+/* SECTION: NAUTILUS COLORS*/
 .nautilus-window.view {
-  background-color: $nautilus-main;
+    background-color: transparent; 
 }
 
 .nautilus-window headerbar > widget > windowtitle {
+
+  background-color: transparent;
   padding: 0;
-  margin: 6px;
+  margin: 3px;
 }
 
+/* Target the navigation button containers inside the Nautilus headerbar */
 .nautilus-window headerbar {
-    background-color: $nautilus-main; /* nautilus top bar*/
-    color: $text  ;
+    // 1. Strip backgrounds off the button grouping containers so the gradient shines through
+    .linked, .navigation-sidebar, box.horizontal {
+        background: transparent;
+        background-color: transparent;
+        background-image: none;
+        box-shadow: none;
+    }
+
+    // 2. Target the actual back and forward arrow buttons
+    button {
+        // Force the buttons to match the height of standard headerbar text labels
+        min-height: 22px; 
+        height: 22px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        margin-top: auto;
+        margin-bottom: auto;
+
+        // Make the button backgrounds transparent so they don't block the gradient
+        background: transparent;
+        background-color: transparent;
+        background-image: none;
+        box-shadow: none;
+        border: none;
+
+        // Subtle hover state so the user still knows they are clickable
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        &:active {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+    }
 }
+
 
 /* Highlight the current folder text so it stays visible */
 .nautilus-window pathbar button:last-child label {
@@ -5690,18 +5729,69 @@ popover.entry-completion > contents {
 }
 
 
-.nautilus-window headerbar windowhandle {
-    background-color: $nautilus-main;
+
+/* 1. LEFT COLUMN HEADER (Sidebar Area) */
+
+/* 1. Calculate a very soft destination color (85% Start Color + 15% End Color) */
+$soft-end-color: mix($panel-grad-end, $panel-grad-start, 65%);
+
+/* 2. LEFT COLUMN HEADER (Sidebar Area) */
+.nautilus-window .sidebar headerbar {
+    // Blends smoothly from the start color to our newly calculated soft color
+    background-image: linear-gradient(to right, #{$panel-grad-start}, #{$soft-end-color});
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    color: $text;
+
+    windowhandle, .linked, box, widget {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+    }
 }
 
+/* 3. RIGHT COLUMN HEADER (Navbar & Main View Area) */
+.nautilus-window .main-page headerbar {
+    // Continues the seamless flow into the soft end color using the offset math
+    background-image: linear-gradient(to right, #{$panel-grad-start} -33%, #{$soft-end-color});
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    color: $text;
+
+    windowhandle, .linked, box, widget, button {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+    }
+
+    button {
+        min-height: 24px;
+        height: 24px;
+        margin-top: auto;
+        margin-bottom: auto;
+        border: none !important;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            border-radius: 6px;
+        }
+        &:active {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+        }
+    }
+}
+
+/* NAUTILUS BUTTONS */
 .nautilus-window headerbar .linked button,
 .nautilus-window headerbar button {
-    background-color: rgba($nautilus-main, 0.5); /* Use a shade of your secondary color */
+
+    background-color: transparent;
     color: $text;
 }
 
 .nautilus-window .sidebar-pane {
-  background-color: $nautilus-main; /* nautilus main top */
+    background-image: linear-gradient(to right, #{$panel-grad-start} -33%, #{$soft-end-color});
+    background-color: transparent; /* nautilus main top */
   color: $text;
 }
 
@@ -5825,10 +5915,11 @@ background-color: $nautilus-secondary;
 #NautilusPathBar {
   background-color: $nautilus-secondary;
   border-radius: 10px;
-  margin: 6px 0;
+  margin: 0px 0;
 }
 
 #NautilusPathButton {
+  background-color: transparent;
   margin: 0 3px;
   border-radius: 12px;
 }
@@ -7369,9 +7460,9 @@ notebook scrolledwindow treeview.treeview-spacing {
 .account-switcher-row label.dim-label {
   color: $text;
 }
-
+/*SECTION: NAUTILUS SIDEBAR */
 .nautilus-window placessidebar > scrolledwindow {
-  background-color: $nautilus-main; /* nautilus main color */
+  background-color: transparent;/* nautilus main color */
   color: $text;
   border-radius: 0;
   /* margin: 0 6px 0 0; */
@@ -7401,7 +7492,7 @@ notebook scrolledwindow treeview.treeview-spacing {
 
 /* 3. The Separator between sidebar and main content */
 .nautilus-window overlaysplitview > separator {
-  background-color: $nautilus-main;
+  background-color: transparent;
   background-image: none;
   min-width: 1px;
 }
@@ -8193,9 +8284,10 @@ overlay-split-view > shadow.down {
   background-color: transparent;
   transition: none;
 }
-
+/* NAUTILUS FRAME */
 .content-pane {
-  background-color: $nautilus-main;
+  background-image: linear-gradient(to left, #{$panel-grad-start}, #{$soft-end-color});
+  background-color: transparent;
   color: $text;
   border-top-right-radius: 12px;
   box-shadow: inset 0 1px rgba(251, 241, 199, 0.15);
